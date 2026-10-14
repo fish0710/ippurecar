@@ -247,6 +247,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for score in [5, 35, 60, 90] {
             write("score\(score).png", .loaded(Self.sampleInfo(score: score)))
         }
+        var v6 = Self.sampleInfo(score: 18)
+        v6.ip = "2400:8902:e002:5a1c:f03c:94ff:fe12:3456"
+        write("ipv6.png", .loaded(v6))
     }
 
     nonisolated static func sampleInfo(score: Int) -> IPInfo {

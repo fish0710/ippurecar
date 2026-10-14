@@ -144,12 +144,6 @@ extension IPInfo {
     /// 住宅 / 机房
     var residentialText: String { isResidential == true ? "住宅" : "机房" }
 
-    /// Dock 胶囊上的简写：JP · 原生 · 机房
-    var shortSummary: String {
-        let cc = (countryCode?.uppercased()).flatMap { $0.isEmpty ? nil : $0 } ?? "--"
-        return "\(cc) · \(broadcastText) · \(residentialText)"
-    }
-
     /// Tokyo, Tokyo, Japan
     var locationText: String {
         [city, region, country].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
