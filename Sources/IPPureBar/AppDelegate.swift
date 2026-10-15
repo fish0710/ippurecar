@@ -52,13 +52,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         render()
         dumpStatesIfNeeded()
 
-        scheduler.onTrigger = { [weak self] in self?.refresh() }
+        scheduler.onTrigger = { [weak self] in self?.refresh($0) }
         scheduler.start(intervalMinutes: settings.refreshMinutes)
-        refresh()
+        refresh(.launch)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        refresh()
+        refresh(.reopen)
         return false
     }
 
@@ -96,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: 刷新
 
-    func refresh() {
+    func refresh(_ trigger: RefreshTrigger) {
         fetchTask?.cancel()
         generation += 1
         let gen = generation
@@ -105,18 +105,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let mode = settings.networkMode
         let client = self.client
+        let proxy = ProxyInfo.description(for: mode)
+        let startedAt = Date()
+        func log(_ outcome: RefreshLog.Outcome) {
+            RefreshLog.shared.record(trigger: trigger, mode: mode, proxy: proxy, startedAt: startedAt, outcome: outcome)
+        }
         fetchTask = Task { [weak self] in
             do {
                 let info = try await client.fetch(mode: mode)
-                guard let self, !Task.isCancelled, gen == self.generation else { return }
+                guard let self, !Task.isCancelled, gen == self.generation else { return log(.cancelled) }
+                log(.success(info))
                 self.state.info = info
                 self.state.updatedAt = Date()
                 self.state.phase = .loaded
                 self.render()
                 self.dumpIconIfNeeded(info)
             } catch {
-                guard let self, !Task.isCancelled, gen == self.generation else { return }
-                if (error as? URLError)?.code == .cancelled { return }
+                guard let self, !Task.isCancelled, gen == self.generation else { return log(.cancelled) }
+                if (error as? URLError)?.code == .cancelled { return log(.cancelled) }
+                log(.failure(error.localizedDescription))
                 self.state.phase = .failed(error.localizedDescription)
                 self.render()
             }
@@ -170,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: 菜单动作
 
-    @objc func refreshNow() { refresh() }
+    @objc func refreshNow() { refresh(.manual) }
 
     @objc func copyIP(_ sender: NSMenuItem) {
         guard let ip = sender.representedObject as? String else { return }
@@ -188,7 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let raw = sender.representedObject as? String, let mode = NetworkMode(rawValue: raw) else { return }
         guard mode != settings.networkMode else { return }
         settings.networkMode = mode
-        refresh()
+        refresh(.modeChange)
     }
 
     @objc func toggleShowInDock() {
@@ -210,6 +217,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             alert.messageText = "无法修改开机启动"
             alert.informativeText = error.localizedDescription
             alert.runModal()
+        }
+    }
+
+    @objc func openRefreshLog() {
+        let url = RefreshLog.shared.fileURL
+        if FileManager.default.fileExists(atPath: url.path) {
+            NSWorkspace.shared.open(url)
+        } else {
+            NSWorkspace.shared.open(url.deletingLastPathComponent())
         }
     }
 

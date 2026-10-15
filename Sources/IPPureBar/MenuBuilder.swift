@@ -125,6 +125,10 @@ enum MenuBuilder {
         web.target = target
         menu.addItem(web)
 
+        let log = NSMenuItem(title: "查看刷新日志", action: #selector(AppDelegate.openRefreshLog), keyEquivalent: "")
+        log.target = target
+        menu.addItem(log)
+
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
